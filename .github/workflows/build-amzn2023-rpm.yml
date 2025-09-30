@@ -2,9 +2,9 @@ name: Build Amazon Linux 2023 RPM packages (Universal Script)
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, amzn2023, amzn2023-3.4.8]
   pull_request:
-    branches: [main, master]
+    branches: [main, master, amzn2023, amzn2023-3.4.8]
   workflow_dispatch:
 
 jobs:
