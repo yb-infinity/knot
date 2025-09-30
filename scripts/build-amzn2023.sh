@@ -38,6 +38,9 @@ fi
 WORKSPACE_DIR=${WORKSPACE_DIR:-$(pwd)}
 FURY_REPO_URL=${FURY_REPO_URL:-"https://yum.fury.io/drakemazzy/"}
 OUTPUT_DIR=${OUTPUT_DIR:-"$WORKSPACE_DIR/rpmbuild-output"}
+SPEC_TEMPLATE=${SPEC_TEMPLATE:-}
+SPEC_BASENAME=""
+SPEC_FILE_PATH=""
 
 log_info "Starting Knot DNS Amazon Linux 2023 RPM build"
 log_info "Workspace: $WORKSPACE_DIR"
@@ -243,14 +246,23 @@ prepare_spec_file() {
     # Copy source archive to SOURCES
     cp "$ARCHIVE" ~/rpmbuild/SOURCES/ || { log_error "Failed to copy archive"; exit 1; }
 
-    # Copy and prepare spec file
-    cp distro/pkg/rpm/knot.spec ~/rpmbuild/SPECS/ || { log_error "Failed to copy spec file"; exit 1; }
+    local spec_basename
 
-    # Apply our comprehensive patch for Amazon Linux 2023 libraries-only build
-    log_info "Applying comprehensive patch for Amazon Linux 2023 compatibility..."
-    cd ~/rpmbuild/SPECS/
-    patch -p1 < "$WORKSPACE_DIR/distro/pkg/rpm/knot-spec-amzn2023.patch" || { log_error "Failed to apply patch"; exit 1; }
-    cd "$WORKSPACE_DIR"
+    if [ -z "$SPEC_TEMPLATE" ]; then
+        SPEC_TEMPLATE="$WORKSPACE_DIR/distro/pkg/rpm/knot-libs.spec"
+    fi
+
+    if [ ! -f "$SPEC_TEMPLATE" ]; then
+        log_error "Spec template not found: $SPEC_TEMPLATE"
+        exit 1
+    fi
+
+    spec_basename=$(basename "$SPEC_TEMPLATE")
+    SPEC_BASENAME="$spec_basename"
+    SPEC_FILE_PATH="$HOME/rpmbuild/SPECS/$SPEC_BASENAME"
+
+    # Copy spec template into SPECS directory
+    cp "$SPEC_TEMPLATE" "$SPEC_FILE_PATH" || { log_error "Failed to copy spec file"; exit 1; }
 
     # Get version from archive name
     VERSION=$(echo $ARCHIVE | sed 's/knot-\(.*\)\.tar\.xz/\1/')
@@ -258,23 +270,28 @@ prepare_spec_file() {
 
     # Update spec file with actual version
     CURRENT_DATE=$(date '+%a %b %d %Y')
-    sed -i "s/{{ version }}/$VERSION/g" ~/rpmbuild/SPECS/knot.spec || { log_error "Failed to update version"; exit 1; }
-    sed -i "s/{{ release }}/1/g" ~/rpmbuild/SPECS/knot.spec || { log_error "Failed to update release"; exit 1; }
-    sed -i "s/{{ now }}/$CURRENT_DATE/g" ~/rpmbuild/SPECS/knot.spec || { log_error "Failed to update date"; exit 1; }
+    sed -i "s/{{ version }}/$VERSION/g" "$SPEC_FILE_PATH" || { log_error "Failed to update version"; exit 1; }
+    sed -i "s/{{ release }}/1/g" "$SPEC_FILE_PATH" || { log_error "Failed to update release"; exit 1; }
+    sed -i "s/{{ now }}/$CURRENT_DATE/g" "$SPEC_FILE_PATH" || { log_error "Failed to update date"; exit 1; }
 
     log_success "Spec file prepared"
 }
 
 # Function to show spec file debug info
 show_spec_debug() {
+    if [ -z "$SPEC_FILE_PATH" ] || [ ! -f "$SPEC_FILE_PATH" ]; then
+        log_warning "Spec file not prepared yet; skipping debug output"
+        return
+    fi
+
     log_info "=== Modified spec file configure section ==="
-    grep -A 15 -B 5 '%configure' ~/rpmbuild/SPECS/knot.spec || log_info "No configure section found"
+    grep -A 15 -B 5 '%configure' "$SPEC_FILE_PATH" || log_info "No configure section found"
 
     log_info "=== Spec file build section ==="
-    grep -A 10 -B 2 '^%build' ~/rpmbuild/SPECS/knot.spec || log_info "No build section found"
+    grep -A 10 -B 2 '^%build' "$SPEC_FILE_PATH" || log_info "No build section found"
 
     log_info "=== Checking for macro issues in commented lines ==="
-    grep '^# .*%{' ~/rpmbuild/SPECS/knot.spec | head -10 || log_info "No commented macros found"
+    grep '^# .*%{' "$SPEC_FILE_PATH" | head -10 || log_info "No commented macros found"
 }
 
 # Function to build RPM packages
@@ -282,8 +299,13 @@ build_rpm_packages() {
     log_info "Building Knot DNS RPM packages (3 separate library packages with XDP support)..."
 
     # Build RPM packages
+    if [ -z "$SPEC_BASENAME" ]; then
+        log_error "Spec file name not set"
+        exit 1
+    fi
+
     cd ~/rpmbuild/SPECS
-    rpmbuild -ba knot.spec || { log_error "RPM build failed"; exit 1; }
+    rpmbuild -ba "$SPEC_BASENAME" || { log_error "RPM build failed"; exit 1; }
 
     log_success "RPM packages built successfully"
 }
@@ -292,7 +314,8 @@ build_rpm_packages() {
 copy_packages() {
     log_info "Copying built packages to output directory..."
 
-    # Create output directories
+    # Ensure fresh output directories
+    rm -rf "$OUTPUT_DIR/RPMS" "$OUTPUT_DIR/SRPMS"
     mkdir -p "$OUTPUT_DIR/RPMS"
     mkdir -p "$OUTPUT_DIR/SRPMS"
 
