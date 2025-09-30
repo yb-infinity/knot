@@ -1,0 +1,58 @@
+name: Build Amazon Linux 2023 RPM packages (Universal Script)
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [x86_64]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build Knot DNS using universal script
+        run: |
+          docker run --rm -v "$PWD":/workspace -w /workspace amazonlinux:2023 /bin/bash -c "
+            # Run the universal build script inside container
+            chmod +x scripts/build-amzn2023.sh
+            ./scripts/build-amzn2023.sh --show-debug
+          "
+
+      - name: List built packages
+        run: |
+          echo "=== All built RPM packages ==="
+          find rpmbuild-output -name "*.rpm" -type f -exec basename {} \;
+          echo ""
+          echo "=== Three separate library packages ==="
+          find rpmbuild-output -name "libknot-*.rpm" -o -name "libdnssec-*.rpm" -o -name "libzscanner-*.rpm" | head -10
+
+      - name: Verify library packages content
+        run: |
+          echo "=== Verifying three separate library packages ==="
+          for pkg in rpmbuild-output/RPMS/*/libknot-*.rpm rpmbuild-output/RPMS/*/libdnssec-*.rpm rpmbuild-output/RPMS/*/libzscanner-*.rpm; do
+            if [ -f "$pkg" ]; then
+              echo "Package: $(basename $pkg)"
+              echo "Files:"
+              rpm -qlp "$pkg" | head -20
+              echo "---"
+            fi
+          done
+
+      - name: Upload RPM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: knot-dns-3libs-xdp-amzn2023-rpm-${{ matrix.arch }}
+          path: |
+            rpmbuild-output/RPMS/**/*.rpm
+            rpmbuild-output/SRPMS/*.rpm
+          retention-days: 30

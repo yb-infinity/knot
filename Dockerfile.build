@@ -1,0 +1,16 @@
+FROM amazonlinux:2023
+
+# Set environment variables
+ENV IN_CONTAINER=true
+ENV INSTALL_DEPS=true
+ENV SHOW_DEBUG=true
+
+# Copy all files
+COPY . /workspace
+WORKDIR /workspace
+
+# Make script executable
+RUN chmod +x scripts/build-amzn2023.sh
+
+# Run the build script
+CMD ["./scripts/build-amzn2023.sh"]
