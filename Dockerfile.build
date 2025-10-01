@@ -1,10 +1,5 @@
 FROM amazonlinux:2023
 
-# Set environment variables
-ENV IN_CONTAINER=true
-ENV INSTALL_DEPS=true
-ENV SHOW_DEBUG=true
-
 # Copy all files
 COPY . /workspace
 WORKDIR /workspace

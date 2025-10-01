@@ -27,9 +27,8 @@ jobs:
       - name: Build Knot DNS libs
         run: |
           docker run --rm -v "$PWD":/workspace -w /workspace amazonlinux:2023 /bin/bash -c "
-            # Run the universal build script inside container
             chmod +x scripts/build-amzn2023.sh
-            ./scripts/build-amzn2023.sh --show-debug
+            ./scripts/build-amzn2023.sh
           "
 
       - name: List built packages

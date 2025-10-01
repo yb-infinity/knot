@@ -5,11 +5,11 @@
 
 Summary: Knot DNS shared libraries
 Name: libknot
-Version: {{ version }}
-Release: cznic.{{ release }}%{?dist}
+Version: {{ rpm_version }}
+Release: {{ release }}%{?dist}
 License: GPL-3.0-or-later
 URL: https://www.knot-dns.cz
-Source0: knot-%{version}.tar.xz
+Source0: knot-{{ source_version }}.tar.xz
 
 BuildRequires: autoconf
 BuildRequires: automake
@@ -18,11 +18,6 @@ BuildRequires: make
 BuildRequires: gcc
 BuildRequires: pkgconfig(liburcu)
 BuildRequires: pkgconfig(gnutls)
-BuildRequires: pkgconfig(libedit)
-BuildRequires: pkgconfig(libcap-ng)
-BuildRequires: pkgconfig(libidn2)
-BuildRequires: pkgconfig(libmnl)
-BuildRequires: pkgconfig(libnghttp2)
 BuildRequires: pkgconfig(libbpf)
 BuildRequires: pkgconfig(libxdp)
 BuildRequires: pkgconfig(lmdb)
@@ -66,7 +61,7 @@ Requires: libzscanner%{?_isa} = %{version}-%{release}
 Header files and metadata required to develop against libzscanner.
 
 %prep
-%autosetup -n knot-%{version}
+%autosetup -n knot-{{ source_version }}
 
 %build
 CFLAGS="%{optflags} -DNDEBUG -Wno-unused"
@@ -148,5 +143,5 @@ install -pm 0644 COPYING %{buildroot}%{_licensedir}/libzscanner/COPYING
 %{_libdir}/pkgconfig/libzscanner.pc
 
 %changelog
-* {{ now }} Knot DNS <knot-dns@labs.nic.cz> - {{ version }}-{{ release }}
+* {{ now }} Knot DNS <knot-dns@labs.nic.cz> - {{ rpm_version }}-{{ release }}
 - libraries only build for Amazon Linux 2023
